@@ -2,11 +2,10 @@ package main
 
 import (
 	"flag"
-	"github.com/djherbis/times"
+	"github.com/barasher/go-exiftool"
 	"go.uber.org/zap"
 	"os"
-	"os/exec"
-	"path"
+	"path/filepath"
 	"time"
 )
 
@@ -31,23 +30,45 @@ func main() {
 	if err != nil {
 		l.Fatalf("failed to read directory: %v", err)
 	}
-	for _, f := range files {
-		i, err := f.Info()
-		if err != nil {
-			l.Fatalf("failed to get file info: %v", err)
-		}
-		t := times.Get(i)
-		d := t.BirthTime().AddDate(years, months, days)
-		_, err = exec.Command("touch", "-t", d.Format("200601021504.05"), path.Join(wd, folder, f.Name())).Output()
-		if err != nil {
-			l.Fatal(err)
-		}
-		_, err = exec.Command("SetFile", "-d", d.Format("01/02/2006 15:04:05"), path.Join(wd, folder, f.Name())).Output()
-		if err != nil {
-			l.Fatal(err)
-		}
-		l.Infow("timewarp done!",
-			"file", i.Name(),
-			"time", t.BirthTime().Format(time.RFC1123))
+	e, err := exiftool.NewExiftool()
+	if err != nil {
+		l.Fatalf("failed to create exiftool: %v", err)
 	}
+	for _, f := range files {
+		if filepath.Ext(f.Name()) != ".JPG" {
+			continue
+		}
+		p := filepath.Join(wd, folder, f.Name())
+		defer e.Close()
+		originals := e.ExtractMetadata(p)
+
+		withTimezone := "2006:01:02 15:04:05-07:00"
+		withoutTimezone := "2006:01:02 15:04:05"
+		withSubSeconds := "2006:01:02 15:04:05.00"
+		thingsToModify := map[string]string{
+			"DateTimeOriginal":       withoutTimezone,
+			"ModifyDate":             withoutTimezone,
+			"CreateDate":             withoutTimezone,
+			"SubSecCreateDate":       withSubSeconds,
+			"SubSecModifyDate":       withSubSeconds,
+			"SubSecDateTimeOriginal": withSubSeconds,
+			"FileModifyDate":         withTimezone,
+			"FileInodeChangeDate":    withTimezone,
+			"FileAccessDate":         withTimezone,
+		}
+		for thing, layout := range thingsToModify {
+			t, err := originals[0].GetString(thing)
+			if err != nil {
+				panic(err)
+			}
+			tm, err := time.Parse(layout, t)
+			if err != nil {
+				panic(err)
+			}
+			originals[0].SetString(thing, tm.AddDate(years, months, days).Format(layout))
+		}
+		e.WriteMetadata(originals)
+		l.Infow("updated", "file", f.Name())
+	}
+	l.Infow("done!", "files", len(files))
 }

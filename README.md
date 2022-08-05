@@ -1,6 +1,6 @@
 # Timewarp
 
-Move creation and last modified dates of all files in a folder.
+Move images in time! (and by that I mean their EXIF date data)
 
 ## usage
 ```
@@ -14,5 +14,6 @@ After days of wondering what is wrong, I realized I set my camera's date to 2021
 
 ## support
 
-It only works on Macs with Xcode Command Line Tools installed. I'm sorry, there is no universal way of supporting creation dates.
-Not like anyone else will use this anyway, just thought it was funny and would share it with the world.
+Initially this was written for my own use, so it only supported Macs with Xcode stuff installed, but now I updated it to work with the EXIF format instead, so it should hopefully work with any camera image .
+
+You can still access the old branch [here](https://github.com/unickorn/timewarp/tree/master) if you for some reason want to change creation dates of files on a Mac with Xcode command line tools installed.
